@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Asisten Virtual Imigrasi</title>
+
+<style>
+
+/* =========================
+   GLOBAL
+========================= */
+body{
+margin:0;
+font-family:Arial;
+background:linear-gradient(rgba(11,61,145,0.7), rgba(11,61,145,0.7)), url('bg.jpeg');
+background-size:cover;
+background-position:center;
+background-attachment:fixed;
+color:white;
+height:100vh;
+overflow:hidden;
+display:flex;
+flex-direction:column;
+}
+
+/* =========================
+   HEADER
+========================= */
+header{
+text-align:center;
+padding:20px;
+font-size:26px;
+font-weight:bold;
+background:rgba(0,0,0,0.3);
+backdrop-filter: blur(5px);
+}
+
+/* =========================
+   LAYOUT
+========================= */
+#container{
+flex:1;
+display:flex;
+padding:30px;
+gap:30px;
+}
+
+/* =========================
+   KARAKTER (KIRI)
+========================= */
+#characterArea{
+width:40%;
+display:flex;
+align-items:center;   /* ⬅️ ini kunci */
+justify-content:center;
+}
+
+#avatar{
+width:300px;
+border-radius:20px;
+box-shadow:0 10px 40px rgba(0,0,0,0.6);
+}
+
+/* =========================
+   CHAT AREA (KANAN)
+========================= */
+#chatArea{
+width:65%;
+display:flex;
+justify-content:center;
+align-items:center;
+}
+
+/* =========================
+   CHAT BOX
+========================= */
+#chatBox{
+width:100%;
+max-width:1000px;
+height:80vh;
+display:flex;
+flex-direction:column;
+background:rgba(255,255,255,0.15);
+backdrop-filter:blur(15px);
+border-radius:20px;
+overflow:hidden;
+}
+
+/* =========================
+   CHAT
+========================= */
+#chat{
+flex:1;
+overflow-y:auto;
+padding:20px;
+}
+
+/* =========================
+   CHAT BUBBLE
+========================= */
+.message{
+max-width:70%;
+padding:14px 18px;
+margin-bottom:12px;
+border-radius:18px;
+font-size:16px;
+line-height:1.4;
+animation: fadeIn 0.3s ease;
+}
+
+.user{
+background:#ffffff;
+color:black;
+margin-left:auto;
+border-bottom-right-radius:5px;
+}
+
+.bot{
+background:white;
+color:black;
+margin-right:auto;
+border-bottom-left-radius:5px;
+}
+
+@keyframes fadeIn{
+from{
+opacity:0;
+transform:translateY(10px);
+}
+to{
+opacity:1;
+transform:translateY(0);
+}
+}
+
+/* =========================
+   INPUT
+========================= */
+#inputArea{
+display:flex;
+padding:15px;
+background:rgba(255,255,255,0.2);
+}
+
+#userInput{
+flex:1;
+padding:12px;
+border:none;
+border-radius:10px;
+outline:none;
+}
+
+button{
+margin-left:10px;
+padding:10px 20px;
+border:none;
+border-radius:10px;
+background:#1e3a8a;
+color:white;
+cursor:pointer;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+ASISTEN VIRTUAL IMIGRASI SULAWESI SELATAN
+</header>
+
+<div id="container">
+
+<!-- KARAKTER -->
+<div id="characterArea">
+<video id="avatar" autoplay muted loop>
+  <source src="idle.mp4" type="video/mp4">
+</video>
+</div>
+
+<!-- CHAT -->
+<div id="chatArea">
+  <div id="chatBox">
+
+    <div id="chat"></div>
+
+    <div id="inputArea">
+    <input id="userInput" placeholder="Tanyakan tentang keimigrasian...">
+
+    <button onclick="startListening()">🎤</button>
+
+    <button onclick="sendMessage()">Kirim</button>
+    </div>
+
+  </div>
+</div>
+
+</div>
+
+<script>
+
+/* =========================
+   VIDEO CONTROL
+========================= */
+function startTalking(){
+  let video = document.getElementById("avatar");
+  video.pause();
+  video.src = "talk.mp4";
+  video.load();
+  video.play();
+}
+
+function stopTalking(){
+  let video = document.getElementById("avatar");
+  video.pause();
+  video.src = "idle.mp4";
+  video.load();
+  video.play();
+}
+
+/* =========================
+   SPEAK
+========================= */
+async function speak(text){
+
+  try{
+
+    startTalking();
+
+    let res = await fetch("http://localhost:3000/tts-eleven",{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify({ text: text })
+    });
+
+    if(!res.ok) throw new Error();
+
+    let blob = await res.blob();
+    let audio = new Audio(URL.createObjectURL(blob));
+
+    await audio.play();
+
+    audio.onended = () => stopTalking();
+    audio.onerror = () => stopTalking();
+
+    setTimeout(stopTalking,15000);
+
+  }catch{
+
+    let suara = new SpeechSynthesisUtterance(text);
+
+    suara.lang = "id-ID";
+    suara.rate = 0.95;
+
+    suara.onstart = startTalking;
+    suara.onend = stopTalking;
+
+    speechSynthesis.cancel();
+    speechSynthesis.speak(suara);
+
+  }
+
+}
+
+/* =========================
+   CHAT UI
+========================= */
+function addMessage(text,type){
+
+let chat=document.getElementById("chat");
+
+let div=document.createElement("div");
+div.className="message "+type;
+div.innerText=text;
+
+chat.appendChild(div);
+
+chat.scrollTo({
+  top: chat.scrollHeight,
+  behavior: "smooth"
+});
+
+return div;
+
+}
+
+function sendMessage(){
+
+let input=document.getElementById("userInput");
+let message=input.value;
+
+if(message==="") return;
+
+addMessage(message,"user");
+
+input.value="";
+
+botReply(message);
+
+}
+
+document.getElementById("userInput").addEventListener("keydown", function(e) {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+let recognition;
+
+function startListening(){
+
+  // cek support browser
+  if (!('webkitSpeechRecognition' in window)) {
+    alert("Browser tidak mendukung voice input");
+    return;
+  }
+
+  recognition = new webkitSpeechRecognition();
+
+  recognition.lang = "id-ID"; // bahasa Indonesia
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  recognition.start();
+
+  console.log("🎤 Mendengarkan...");
+
+  recognition.onresult = function(event){
+
+    let hasil = event.results[0][0].transcript;
+
+    console.log("Hasil:", hasil);
+
+    // tampilkan ke input
+    document.getElementById("userInput").value = hasil;
+
+    // langsung kirim ke AI
+    sendMessage();
+  };
+
+  recognition.onerror = function(event){
+    console.log("Error mic:", event.error);
+  };
+
+  recognition.onend = function(){
+    console.log("🎤 Selesai");
+  };
+
+}
+
+
+/* =========================
+   API
+========================= */
+async function botReply(text){
+
+let bubble=addMessage("asisten sedang mengetik","bot");
+
+try{
+
+let response=await fetch("http://localhost:3000/chat",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({message:text})
+});
+
+let data=await response.json();
+
+bubble.innerText=data.reply;
+
+speak(data.reply);
+
+}catch{
+
+bubble.innerText="Terjadi kesalahan koneksi.";
+
+}
+
+}
+
+</script>
+
+</body>
+</html>
