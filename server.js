@@ -10,7 +10,7 @@ app.use(express.json());
 /* =========================
    GEMINI API (CHAT AI)
 ========================= */
-const GEMINI_API_KEY = "isi dengan GEMINI_API_KEY";
+const GEMINI_API_KEY = "AIzaSyBPDP_g91sT8pB7YCAgqRwoyAjzV2scULA";
 
 app.post("/chat", async (req, res) => {
 
